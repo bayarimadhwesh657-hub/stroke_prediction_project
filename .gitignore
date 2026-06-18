@@ -1,0 +1,5 @@
+.venv/
+.idea/
+__pycache__/
+predictions.db
+stroke_model.pkl

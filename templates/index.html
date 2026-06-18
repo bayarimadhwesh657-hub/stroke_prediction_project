@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stroke Risk Detection</title>
+
+    <style>
+
+        body{
+            font-family:Arial;
+            background:#f2f2f2;
+            text-align:center;
+        }
+
+        .container{
+            background:white;
+            width:450px;
+            padding:30px;
+            margin:auto;
+            margin-top:50px;
+            border-radius:10px;
+            box-shadow:0 0 10px gray;
+        }
+
+        input{
+            width:90%;
+            padding:10px;
+            margin:10px;
+        }
+
+        button{
+            padding:10px 20px;
+            background:blue;
+            color:white;
+            border:none;
+            cursor:pointer;
+        }
+
+        a{
+            text-decoration:none;
+            color:blue;
+            font-weight:bold;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h2>Stroke Risk Detection System</h2>
+
+    <form action="/predict" method="post">
+
+        <input type="number" step="any" name="age" placeholder="Age" required>
+
+        <input type="number" name="hypertension" placeholder="Hypertension (0 or 1)" required>
+
+        <input type="number" name="heart_disease" placeholder="Heart Disease (0 or 1)" required>
+
+        <input type="number" step="any" name="glucose" placeholder="Glucose Level" required>
+
+        <input type="number" step="any" name="bmi" placeholder="BMI" required>
+
+        <br><br>
+
+        <button type="submit">Predict</button>
+
+    </form>
+
+    <br>
+
+    <h3>{{ prediction_text }}</h3>
+</html>
