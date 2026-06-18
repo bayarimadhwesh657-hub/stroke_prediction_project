@@ -7,16 +7,13 @@ import joblib
 
 app = Flask(__name__)
 
-
 # LOAD MODEL + PREPROCESSORS
-
 model = joblib.load("stroke_model_compressed.joblib")
 imputer = pickle.load(open("imputer.pkl", "rb"))
 scaler = pickle.load(open("scaler.pkl", "rb"))
 
+
 # DATABASE SETUP
-
-
 def create_table():
     conn = sqlite3.connect("predictions.db")
     cursor = conn.cursor()
@@ -38,25 +35,21 @@ def create_table():
     conn.commit()
     conn.close()
 
+
 create_table()
 
 
 # HOME PAGE
-
-
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
 # PREDICTION ROUTE
-
 @app.route("/predict", methods=["POST"])
 def predict():
 
-
     # GET USER INPUT
-
     age = float(request.form["age"])
     hypertension = int(request.form["hypertension"])
     heart_disease = int(request.form["heart_disease"])
@@ -66,7 +59,7 @@ def predict():
     # PREPARE INPUT
     features = np.array([[age, hypertension, heart_disease, glucose, bmi]])
 
-    # Apply preprocessing
+    # PREPROCESSING
     features = imputer.transform(features)
     features = scaler.transform(features)
 
@@ -75,8 +68,7 @@ def predict():
 
     print("ML Probability:", round(probability, 2))
 
-    # MEDICAL RULES LOGIC
-
+    # MEDICAL RULES
     high_risk = (
         (hypertension == 1 and heart_disease == 1)
         or (glucose >= 180 and bmi >= 35)
@@ -105,9 +97,6 @@ def predict():
     else:
         result = "Healthy"
         final_score = 20
-
-    print("Final Result:", result)
-    print("Final Score:", final_score)
 
     # SAVE TO DATABASE
     conn = sqlite3.connect("predictions.db")
@@ -139,28 +128,33 @@ def predict():
     conn.commit()
     conn.close()
 
-    # RETURN OUTPUT
     return render_template(
         "index.html",
         prediction_text=result,
         percentage=final_score
     )
 
-# HISTORY PAGE
 
+# HISTORY PAGE
 @app.route("/history")
 def history():
+
     conn = sqlite3.connect("predictions.db")
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM prediction_history ORDER BY id DESC")
+    cursor.execute(
+        "SELECT * FROM prediction_history ORDER BY id DESC"
+    )
+
     rows = cursor.fetchall()
 
     conn.close()
 
-    return render_template("history.html", rows=rows)
+    return render_template(
+        "history.html",
+        rows=rows
+    )
 
-# RUN APP
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)
