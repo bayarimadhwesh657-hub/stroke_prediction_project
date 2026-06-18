@@ -1,19 +1,36 @@
 from flask import Flask, render_template, request
-import pickle
 import numpy as np
 import sqlite3
 from datetime import datetime
 import joblib
+import pickle
+import os
 
 app = Flask(__name__)
 
-# LOAD MODEL + PREPROCESSORS
-model = joblib.load("stroke_model_compressed.joblib")
-imputer = pickle.load(open("imputer.pkl", "rb"))
-scaler = pickle.load(open("scaler.pkl", "rb"))
+# -----------------------------
+# GLOBAL VARIABLES (NO LOADING HERE)
+# -----------------------------
+model = None
+imputer = None
+scaler = None
 
 
+# -----------------------------
+# LAZY MODEL LOADING (IMPORTANT FIX)
+# -----------------------------
+def load_models():
+    global model, imputer, scaler
+
+    if model is None:
+        model = joblib.load("stroke_model_compressed.joblib")
+        imputer = pickle.load(open("imputer.pkl", "rb"))
+        scaler = pickle.load(open("scaler.pkl", "rb"))
+
+
+# -----------------------------
 # DATABASE SETUP
+# -----------------------------
 def create_table():
     conn = sqlite3.connect("predictions.db")
     cursor = conn.cursor()
@@ -39,36 +56,39 @@ def create_table():
 create_table()
 
 
+# -----------------------------
 # HOME PAGE
+# -----------------------------
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
+# -----------------------------
 # PREDICTION ROUTE
+# -----------------------------
 @app.route("/predict", methods=["POST"])
 def predict():
 
-    # GET USER INPUT
+    # Load models only when needed (prevents memory crash)
+    load_models()
+
+    # GET INPUT
     age = float(request.form["age"])
     hypertension = int(request.form["hypertension"])
     heart_disease = int(request.form["heart_disease"])
     glucose = float(request.form["glucose"])
     bmi = float(request.form["bmi"])
 
-    # PREPARE INPUT
+    # PREPROCESS
     features = np.array([[age, hypertension, heart_disease, glucose, bmi]])
-
-    # PREPROCESSING
     features = imputer.transform(features)
     features = scaler.transform(features)
 
-    # MODEL PREDICTION
+    # ML PREDICTION
     probability = model.predict_proba(features)[0][1] * 100
 
-    print("ML Probability:", round(probability, 2))
-
-    # MEDICAL RULES
+    # RULE-BASED LOGIC
     high_risk = (
         (hypertension == 1 and heart_disease == 1)
         or (glucose >= 180 and bmi >= 35)
@@ -98,20 +118,15 @@ def predict():
         result = "Healthy"
         final_score = 20
 
-    # SAVE TO DATABASE
+    # SAVE TO DB
     conn = sqlite3.connect("predictions.db")
     cursor = conn.cursor()
 
     cursor.execute("""
         INSERT INTO prediction_history(
-            age,
-            hypertension,
-            heart_disease,
-            glucose,
-            bmi,
-            prediction,
-            percentage,
-            created_at
+            age, hypertension, heart_disease,
+            glucose, bmi, prediction,
+            percentage, created_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
@@ -135,26 +150,25 @@ def predict():
     )
 
 
+# -----------------------------
 # HISTORY PAGE
+# -----------------------------
 @app.route("/history")
 def history():
-
     conn = sqlite3.connect("predictions.db")
     cursor = conn.cursor()
 
-    cursor.execute(
-        "SELECT * FROM prediction_history ORDER BY id DESC"
-    )
-
+    cursor.execute("SELECT * FROM prediction_history ORDER BY id DESC")
     rows = cursor.fetchall()
 
     conn.close()
 
-    return render_template(
-        "history.html",
-        rows=rows
-    )
+    return render_template("history.html", rows=rows)
 
 
+# -----------------------------
+# RUN APP (IMPORTANT FOR RENDER)
+# -----------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
